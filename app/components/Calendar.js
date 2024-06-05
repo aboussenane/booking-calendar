@@ -62,7 +62,6 @@ function Calendar() {
         title: newEventName,
         start: startDate,
         end: endDate,
-        allDay: true,
         color: 'green',
       };
       setEvents([...events, newEvent]);
