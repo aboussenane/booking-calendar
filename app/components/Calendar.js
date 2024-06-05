@@ -22,7 +22,23 @@ function Calendar() {
   const [duration, setDuration] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [conflictMessage, setConflictMessage] = useState('');
-  const isMobile = window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    // Set initial value
+    handleResize();
+
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+
+    // Remove event listener on cleanup
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
     useEffect(() => {
       const fetchEvents = async () => {
         try {
