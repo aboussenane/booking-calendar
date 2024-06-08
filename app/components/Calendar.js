@@ -1,10 +1,10 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { Stack, Box, Button, Input, Flex, IconButton, Select,useMediaQuery, Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton, useDisclosure, Text, Center } from '@chakra-ui/react';
-import { AddIcon } from '@chakra-ui/icons';
+import { AddIcon, ArrowBackIcon, ArrowForwardIcon } from '@chakra-ui/icons';
 import Holidays from 'date-holidays';
 import { all } from 'axios';
 import { add, format, isBefore } from 'date-fns';
@@ -25,22 +25,9 @@ function Calendar() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [conflictMessage, setConflictMessage] = useState('');
   const [isMobile] = useMediaQuery("(max-width: 768px)");
-  // useEffect(() => {
-  //   const handleResize = () => {
-  //     setIsMobile(window.innerWidth < 768);
-  //   };
-
-  //   // Set initial value
-  //   handleResize();
-
-  //   // Add event listener
-  //   window.addEventListener('resize', handleResize);
-
-  //   // Remove event listener on cleanup
-  //   return () => {
-  //     window.removeEventListener('resize', handleResize);
-  //   };
-  // }, []);
+  const calendarRef = useRef(null);
+  const [calendarTitle, setCalendarTitle] = useState('');
+  const [viewMode, setViewMode] = useState('dayGridMonth');
     useEffect(() => {
       const fetchEvents = async () => {
         try {
@@ -149,24 +136,33 @@ function Calendar() {
         onClose(); // Call the existing onClose function
       };
     };
+    const handleDatesSet = (arg) => {
+      setCalendarTitle(arg.view.title);
+      setViewMode(arg.view.type);
+    };
   return (
-    <Box width="100%" height="100vh" padding={0} >
+    <Box width="100%" height="100vh" padding={0} m={0}>
     
         
         <Center>
-        <Flex direction="column" align="center" width="100%" height="100%" maxW={1100}>
-        <Flex mb={4} alignItems="center" justifyContent="flex-start" left={0} width="100%">
-        <IconButton
-          icon={<AddIcon />}
-          aria-label="Add event"
-          onClick={onOpen}
-          borderRadius="50%"
-          size="lg"
-          colorScheme="teal"
-          mr={2}
-        />
-            
-          </Flex>
+        <Flex direction="column" align="center" width="100%" height="100%" maxW={1100} p={isMobile ? 0 : 4}>
+        <Stack direction="row" spacing={2} align="center" justify="center">
+            {!isMobile && (
+              <>
+                <Flex align="center" justify="space-between" mt={2} mb={2}>
+                  <IconButton
+                    icon={<AddIcon />}
+                    aria-label="Add event"
+                    onClick={onOpen}
+                    borderRadius="50%"
+                    size="lg"
+                    colorScheme="teal"
+                  />
+                </Flex>
+              </>
+            )}
+            <Text fontSize="3xl">{calendarTitle}</Text>
+          </Stack>
           <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />
         <ModalContent>
@@ -238,7 +234,27 @@ function Calendar() {
           </ModalFooter>
         </ModalContent>
       </Modal>
-      
+      {isMobile && (
+            <>
+            
+              <Stack direction="row" spacing={2} mt={2} align="center">
+              <Flex align="center" justify="space-between" mt={2} mb={2}>
+                <IconButton
+                  icon={<AddIcon />}
+                  aria-label="Add event"
+                  onClick={onOpen}
+                  borderRadius="50%"
+                  size="lg"
+                  colorScheme="teal"
+                />
+                
+              </Flex>
+              <Button width="60px" onClick={() => calendarRef.current.getApi().changeView('dayGridMonth')}>Month</Button>
+                <Button width="60px" onClick={() => calendarRef.current.getApi().changeView('timeGridWeek')}>Week</Button>
+                <Button width="60px" onClick={() => calendarRef.current.getApi().changeView('timeGridDay')}>Day</Button>
+              </Stack>
+              </>
+      )}
       <Box
           width="100%"
           minWidth="344px"
@@ -246,39 +262,21 @@ function Calendar() {
           flex="1"
           overflow="hidden"
           transform={isMobile ? 'scale(0.9)' : 'none'}
+          transform={isMobile ? 'paddingLeft' : '20px'}
           transformOrigin="top left"
+          
+          m={0}
+          
+          
         >
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView={isMobile ? 'timeGridDay' : 'dayGridMonth'}
             headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
+              left: isMobile ? '' : 'prev,next today',
               right: isMobile ? '' : 'dayGridMonth,timeGridWeek,timeGridDay'
             }}
-            customButtons={{
-              monthView: {
-                text: 'Month',
-                click: () => {
-                  const calendarApi = FullCalendar.Calendar.getApi();
-                  calendarApi.changeView('dayGridMonth');
-                },
-              },
-              weekView: {
-                text: 'Week',
-                click: () => {
-                  const calendarApi = FullCalendar.Calendar.getApi();
-                  calendarApi.changeView('timeGridWeek');
-                },
-              },
-              dayView: {
-                text: 'Day',
-                click: () => {
-                  const calendarApi = FullCalendar.Calendar.getApi();
-                  calendarApi.changeView('timeGridDay');
-                },
-              },
-            }}
+            ref={calendarRef}
             editable={true}
             selectable={true}
             selectMirror={true}
@@ -287,13 +285,40 @@ function Calendar() {
             events={[...events, ...holidays]}
             height="100%"
             contentHeight="auto"
+            datesSet={handleDatesSet}
           />
-          {isMobile && (
-            <Stack direction="column" spacing={2} mt={2}>
-              <Button onClick={() => FullCalendar.Calendar.getApi().changeView('dayGridMonth')}>Month</Button>
-              <Button onClick={() => FullCalendar.Calendar.getApi().changeView('timeGridWeek')}>Week</Button>
-              <Button onClick={() => FullCalendar.Calendar.getApi().changeView('timeGridDay')}>Day</Button>
-            </Stack>
+          <Stack direction="row" spacing={2} align="center" justify="center" mt={4}>
+            {['dayGridMonth', 'timeGridWeek', 'timeGridDay'].map((mode) => (
+              <Button
+                key={mode}
+                onClick={() => calendarRef.current.getApi().changeView(mode)}
+                colorScheme={viewMode === mode ? 'teal' : 'gray'}
+              >
+                {mode === 'dayGridMonth' ? 'Month' : mode === 'timeGridWeek' ? 'Week' : 'Day'}
+              </Button>
+            ))}
+          </Stack>
+          {viewMode !== 'timeGridDay' && (
+            
+            <Flex align="center" justify="center" mt={2} mb={2}>
+              <IconButton
+                icon={<ArrowBackIcon />}
+                aria-label="Previous"
+                onClick={() => calendarRef.current.getApi().prev()}
+                borderRadius="50%"
+                size="lg"
+                colorScheme="teal"
+              />
+              <IconButton
+                icon={<ArrowForwardIcon />}
+                aria-label="Next"
+                onClick={() => calendarRef.current.getApi().next()}
+                borderRadius="50%"
+                size="lg"
+                colorScheme="teal"
+                ml={2}
+              />
+            </Flex>
           )}
         </Box>
           </Flex>
