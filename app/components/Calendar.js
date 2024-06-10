@@ -7,8 +7,9 @@ import { Stack, Box, Button, Input, Flex, IconButton, Select,useMediaQuery, Moda
 import { AddIcon, ArrowBackIcon, ArrowForwardIcon } from '@chakra-ui/icons';
 import Holidays from 'date-holidays';
 import { all } from 'axios';
-import { add, format, isBefore } from 'date-fns';
+import { add, format, isBefore, isPast, formatISO, isEqual } from 'date-fns';
 import interactionPlugin from '@fullcalendar/interaction';
+
 
 
 function Calendar() {
@@ -33,15 +34,15 @@ function Calendar() {
         try {
           const response = await fetch('http://localhost:3000/api/get-bookings');
           const data = await response.json();
-          console.log('Fetched events:', data.bookings); // Log fetched events
+          //console.log('Fetched events:', data.bookings); // Log fetched events
         if (Array.isArray(data.bookings)) {
           setEvents(data.bookings.map(booking => ({
             title: booking.name,
             start: booking.start_date,
-            end: booking.end_date,
+            end: booking.end_date === booking.start_date ? '' : booking.end_date,
             description: booking.description,
-            color: 'green',
-            allDay: false,
+            color: booking.description === 'reservation' ? 'gray' : 'green',
+            allDay: true,
           })));
         } else {
           console.error('Invalid data format:', data);
@@ -67,9 +68,9 @@ function Calendar() {
       fetchEvents();
       fetchHolidays();
     }, []);
-    const checkForConflicts = async (startDateTime, endDateTime) => {
-      const apiUrl = `http://localhost:3000/api/check-conflict?start_date=${encodeURIComponent(format(startDateTime, 'yyyy-MM-dd HH:mm:ss'))}&end_date=${encodeURIComponent(format(endDateTime, 'yyyy-MM-dd HH:mm:ss'))}`;
-      console.log('Checking for conflicts with start date:', format(startDateTime, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSX'), 'and end date:', format(endDateTime, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSX'));
+    const checkForConflicts = async (firstDate, secondDate) => {
+      const apiUrl = `http://localhost:3000/api/check-conflict?start_date=${encodeURIComponent(format(startDate, 'yyyy-MM-dd'))}&end_date=${encodeURIComponent(format(endDate, 'yyyy-MM-dd'))}`;
+      //console.log('Checking for conflicts with start date:', format(firstDate, 'yyyy-MM-dd'), 'and end date:', format(secondDate, 'yyyy-MM-dd'));
       try {
         const response = await fetch(apiUrl, {
           method: 'GET',
@@ -77,28 +78,36 @@ function Calendar() {
         const data = await response.json();
         
         if (data.conflicts && data.conflicts.length > 0) {
-          console.log('Conflicts found:', data.conflicts);
+          //console.log('Conflicts found:', data.conflicts);
           return true; // Conflicts exist
         }
         
         return false; // No conflicts
       } catch (error) {
-        console.error('Error checking for conflicts:', error);
+        //console.error('Error checking for conflicts:', error);
         return false; // Assume no conflicts in case of error
       }
     };
     const addNewEvent = async () => {
-      const startDateTime = new Date(`${startDate}T${startTime}`);
-      const durationMinutes = parseInt(duration, 10);
-      const endDateTime = add(startDateTime, { minutes: durationMinutes });
-      console.log('New event:', newEventName, newEventEmail, startDateTime, endDateTime, eventType);
+      let tempDate = formatISO(new Date(`${startDate}`));
+      let tempDate2 = formatISO(new Date(`${endDate}`));
       
-      if (isBefore(startDateTime, new Date())) {
-        setConflictMessage('The start date and time must be in the future.');
-        console.log('Start date is in the past');
+      //console.log('New event:', newEventName, newEventEmail, startDate, endDate, eventType);
+      if (isPast(startDate) || isBefore(tempDate2,tempDate)){
+        setConflictMessage('The start date and time must be in the future. The start date cannot be after the end date.');
+        console.log('Start date is in the past or before start date.');
         return;
       }
-      const hasConflicts = await checkForConflicts(startDateTime, endDateTime);
+      if (isEqual(tempDate, tempDate)) {
+        console.log('Start date before: ', tempDate, 'End date before: ', tempDate2);
+        tempDate = formatISO(add(tempDate, { days: 1, }));
+        //tempDate2 = formatISO(add(tempDate2, { days: 2, }));
+        console.log('Start date after: ', tempDate, 'End date after: ', tempDate2);
+      }
+      const firstDate = startDate;
+      const secondDate = tempDate2;
+      console.log('First date:', firstDate, 'Second date:', secondDate);
+      const hasConflicts = await checkForConflicts(firstDate, secondDate);
       if (hasConflicts) {
         setConflictMessage('This booking conflicts with an existing booking.');
         console.log('Conflict detected');
@@ -107,13 +116,14 @@ function Calendar() {
       const newEvent = {
         title: newEventName ,
         email: newEventEmail,
-        start: startDateTime,
-        end: endDateTime,
+        start: firstDate,
+        end: secondDate,
         description: eventType,
-        color: eventType === 'interview' ? 'green' : 'red',
+        color: eventType === 'reservation' ? 'gray' : 'green',
       };
       setEvents([...events, newEvent]);
-      const apiUrl = `http://localhost:3000/api/add-booking?name=${encodeURIComponent(newEventName)}&email=${encodeURIComponent(newEventEmail)}&description=${encodeURIComponent(eventType)}&start_date=${encodeURIComponent(format(startDateTime, 'yyyy-MM-dd HH:mm:ss'))}&end_date=${encodeURIComponent(format(endDateTime, 'yyyy-MM-dd HH:mm:ss'))}`;      fetch(apiUrl, {
+      const apiUrl = `http://localhost:3000/api/add-booking?name=${encodeURIComponent(newEventName)}&email=${encodeURIComponent(newEventEmail)}&description=${encodeURIComponent(eventType)}&start_date=${encodeURIComponent(format(firstDate, 'yyyy-MM-dd HH:mm:ss'))}&end_date=${encodeURIComponent(format(secondDate, 'yyyy-MM-dd HH:mm:ss'))}`;      
+      fetch(apiUrl, {
         method: 'GET',
       })
       .then(response => response.json())
@@ -122,8 +132,8 @@ function Calendar() {
         setNewEventName('');
         setNewEventEmail('');
         setStartDate('');
-        setStartTime('');
-        setDuration('');
+        setEndDate('');
+       
         setEventType('');
         handleModalClose();
       })
@@ -156,7 +166,8 @@ function Calendar() {
                     onClick={onOpen}
                     borderRadius="50%"
                     size="lg"
-                    colorScheme="teal"
+                    
+                    
                   />
                 </Flex>
               </>
@@ -192,26 +203,13 @@ function Calendar() {
               mb={2}
             />
             <Input
-              type="time"
-              value={startTime}
-              step="900"
-              onChange={(e) => setStartTime(e.target.value)}
-              placeholder="Start time"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              placeholder="End date"
               width="100%"
               mb={2}
             />
-            <Select
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="Select duration"
-              width="100%"
-              mb={2}
-            >
-              <option value="15">15 minutes</option>
-              <option value="30">30 minutes</option>
-              <option value="45">45 minutes</option>
-              <option value="60">1 hour</option>
-            </Select>
             <Select
               value={eventType}
               onChange={(e) => setEventType(e.target.value)}
@@ -219,8 +217,8 @@ function Calendar() {
               width="100%"
               mb={2}
             >
-              <option value="call">Phone Call</option>
-              <option value="interview">Interview</option>
+              <option value="reservation">Reservation</option>
+              <option value="checkout">Checkout</option>
             </Select>
             {conflictMessage && (
               <Text color="red.500" mb={2}>{conflictMessage}</Text>
@@ -238,6 +236,14 @@ function Calendar() {
             <>
             
               <Stack direction="row" spacing={2} mt={2} align="center">
+              <IconButton
+                icon={<ArrowBackIcon />}
+                aria-label="Previous"
+                onClick={() => calendarRef.current.getApi().prev()}
+                borderRadius="50%"
+                size="lg"
+                colorScheme="teal"
+              />
               <Flex align="center" justify="space-between" mt={2} mb={2}>
                 <IconButton
                   icon={<AddIcon />}
@@ -249,9 +255,18 @@ function Calendar() {
                 />
                 
               </Flex>
-              <Button width="60px" onClick={() => calendarRef.current.getApi().changeView('dayGridMonth')}>Month</Button>
+                <Button width="60px" onClick={() => calendarRef.current.getApi().changeView('dayGridMonth')}>Month</Button>
                 <Button width="60px" onClick={() => calendarRef.current.getApi().changeView('timeGridWeek')}>Week</Button>
                 <Button width="60px" onClick={() => calendarRef.current.getApi().changeView('timeGridDay')}>Day</Button>
+                <IconButton
+                icon={<ArrowForwardIcon />}
+                aria-label="Next"
+                onClick={() => calendarRef.current.getApi().next()}
+                borderRadius="50%"
+                size="lg"
+                colorScheme="teal"
+                ml={2}
+              />
               </Stack>
               </>
       )}
@@ -287,39 +302,8 @@ function Calendar() {
             contentHeight="auto"
             datesSet={handleDatesSet}
           />
-          <Stack direction="row" spacing={2} align="center" justify="center" mt={4}>
-            {['dayGridMonth', 'timeGridWeek', 'timeGridDay'].map((mode) => (
-              <Button
-                key={mode}
-                onClick={() => calendarRef.current.getApi().changeView(mode)}
-                colorScheme={viewMode === mode ? 'teal' : 'gray'}
-              >
-                {mode === 'dayGridMonth' ? 'Month' : mode === 'timeGridWeek' ? 'Week' : 'Day'}
-              </Button>
-            ))}
-          </Stack>
-          {viewMode !== 'timeGridDay' && (
-            
-            <Flex align="center" justify="center" mt={2} mb={2}>
-              <IconButton
-                icon={<ArrowBackIcon />}
-                aria-label="Previous"
-                onClick={() => calendarRef.current.getApi().prev()}
-                borderRadius="50%"
-                size="lg"
-                colorScheme="teal"
-              />
-              <IconButton
-                icon={<ArrowForwardIcon />}
-                aria-label="Next"
-                onClick={() => calendarRef.current.getApi().next()}
-                borderRadius="50%"
-                size="lg"
-                colorScheme="teal"
-                ml={2}
-              />
-            </Flex>
-          )}
+          
+          
         </Box>
           </Flex>
       </Center>
