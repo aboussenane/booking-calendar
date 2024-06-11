@@ -32,7 +32,7 @@ function Calendar() {
     useEffect(() => {
       const fetchEvents = async () => {
         try {
-          const response = await fetch('http://localhost:3000/api/get-bookings');
+          const response = await fetch('https://booking-calendar-ten.vercel.app/api/get-bookings');
           const data = await response.json();
           //console.log('Fetched events:', data.bookings); // Log fetched events
         if (Array.isArray(data.bookings)) {
@@ -69,7 +69,7 @@ function Calendar() {
       fetchHolidays();
     }, []);
     const checkForConflicts = async (firstDate, secondDate) => {
-      const apiUrl = `http://localhost:3000/api/check-conflict?start_date=${encodeURIComponent(format(startDate, 'yyyy-MM-dd'))}&end_date=${encodeURIComponent(format(endDate, 'yyyy-MM-dd'))}`;
+      const apiUrl = `https://booking-calendar-ten.vercel.app/api/check-conflict?start_date=${encodeURIComponent(format(startDate, 'yyyy-MM-dd'))}&end_date=${encodeURIComponent(format(endDate, 'yyyy-MM-dd'))}`;
       //console.log('Checking for conflicts with start date:', format(firstDate, 'yyyy-MM-dd'), 'and end date:', format(secondDate, 'yyyy-MM-dd'));
       try {
         const response = await fetch(apiUrl, {
@@ -122,7 +122,7 @@ function Calendar() {
         color: eventType === 'reservation' ? 'gray' : 'green',
       };
       setEvents([...events, newEvent]);
-      const apiUrl = `http://localhost:3000/api/add-booking?name=${encodeURIComponent(newEventName)}&email=${encodeURIComponent(newEventEmail)}&description=${encodeURIComponent(eventType)}&start_date=${encodeURIComponent(format(firstDate, 'yyyy-MM-dd HH:mm:ss'))}&end_date=${encodeURIComponent(format(secondDate, 'yyyy-MM-dd HH:mm:ss'))}`;      
+      const apiUrl = `https://booking-calendar-ten.vercel.app/api/add-booking?name=${encodeURIComponent(newEventName)}&email=${encodeURIComponent(newEventEmail)}&description=${encodeURIComponent(eventType)}&start_date=${encodeURIComponent(format(firstDate, 'yyyy-MM-dd HH:mm:ss'))}&end_date=${encodeURIComponent(format(secondDate, 'yyyy-MM-dd HH:mm:ss'))}`;      
       fetch(apiUrl, {
         method: 'GET',
       })
